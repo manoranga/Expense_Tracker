@@ -7,33 +7,50 @@ interface TransactionModalProps {
     onClose: () => void;
     categories: Category[];
     onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+    onUpdateTransaction: (transaction: Transaction) => void;
+    transactionToEdit: Transaction | null;
 }
 
-const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, categories, onAddTransaction }) => {
+const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, categories, onAddTransaction, onUpdateTransaction, transactionToEdit }) => {
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState<TransactionType>(TransactionType.EXPENSE);
 
+    const isEditMode = useMemo(() => transactionToEdit !== null, [transactionToEdit]);
+
     const filteredCategories = useMemo(() => {
         return categories.filter(c => c.type === type);
     }, [categories, type]);
 
     useEffect(() => {
-        setCategoryId('');
-    }, [type]);
-
-    useEffect(() => {
+        // When the modal opens, populate the form if in edit mode, otherwise reset it.
         if (isOpen) {
-            // Reset form when modal opens
-            setType(TransactionType.EXPENSE);
-            setAmount('');
-            setDescription('');
-            setCategoryId('');
-            setDate(new Date().toISOString().split('T')[0]);
+            if (isEditMode && transactionToEdit) {
+                setType(transactionToEdit.type);
+                setAmount(String(transactionToEdit.amount));
+                setDescription(transactionToEdit.description || '');
+                const category = categories.find(c => c.name === transactionToEdit.category && c.type === transactionToEdit.type);
+                setCategoryId(category ? String(category.id) : '');
+                setDate(transactionToEdit.date);
+            } else {
+                setType(TransactionType.EXPENSE);
+                setAmount('');
+                setDescription('');
+                setCategoryId('');
+                setDate(new Date().toISOString().split('T')[0]);
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, isEditMode, transactionToEdit, categories]);
+
+     useEffect(() => {
+        // Reset category if type changes in "Add" mode
+        if (!isEditMode) {
+             setCategoryId('');
+        }
+    }, [type, isEditMode]);
+
 
     if (!isOpen) {
         return null;
@@ -46,13 +63,19 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, ca
 
         if (!numAmount || !selectedCategory) return;
         
-        onAddTransaction({
+        const transactionData = {
             amount: numAmount,
             description,
             category: selectedCategory.name,
             date,
             type,
-        });
+        };
+
+        if (isEditMode && transactionToEdit) {
+            onUpdateTransaction({ ...transactionData, id: transactionToEdit.id });
+        } else {
+            onAddTransaction(transactionData);
+        }
     };
 
     return (
@@ -65,7 +88,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, ca
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold text-white">Add Transaction</h3>
+                    <h3 className="text-2xl font-bold text-white">{isEditMode ? 'Edit Transaction' : 'Add Transaction'}</h3>
                     <button 
                         onClick={onClose} 
                         className="text-slate-400 hover:text-white transition-colors"
@@ -103,7 +126,9 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, ca
                         <input type="date" id="modal-date" value={date} onChange={e => setDate(e.target.value)} required className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"/>
                     </div>
                     
-                    <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300">Add Transaction</button>
+                    <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-300">
+                        {isEditMode ? 'Update Transaction' : 'Add Transaction'}
+                    </button>
                 </form>
             </div>
              <style>{`

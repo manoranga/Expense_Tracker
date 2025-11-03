@@ -16,6 +16,7 @@ const App: React.FC = () => {
     const [categories, setCategories] = useState<Category[]>(getCategories(DEFAULT_CATEGORIES));
     const [selectedMonth, setSelectedMonth] = useState(new Date());
     const [isTransactionModalOpen, setTransactionModalOpen] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [chartDisplayType, setChartDisplayType] = useState<TransactionType>(TransactionType.EXPENSE);
 
 
@@ -50,6 +51,12 @@ const App: React.FC = () => {
         setTransactionModalOpen(false); // Close modal on success
     }, []);
 
+    const handleUpdateTransaction = useCallback((updatedTransaction: Transaction) => {
+        setTransactions(prev => prev.map(t => t.id === updatedTransaction.id ? updatedTransaction : t));
+        setTransactionModalOpen(false);
+        setEditingTransaction(null);
+    }, []);
+
     const handleAddCategory = useCallback((category: Omit<Category, 'id'>) => {
         if (!categories.find(c => c.name.toLowerCase() === category.name.toLowerCase() && c.type === category.type)) {
             setCategories(prev => [...prev, { ...category, id: Date.now() }]);
@@ -66,6 +73,21 @@ const App: React.FC = () => {
         exportToExcel(transactions, 'Expense-Tracker-Data');
     }, [transactions]);
 
+    const handleOpenAddModal = () => {
+        setEditingTransaction(null);
+        setTransactionModalOpen(true);
+    };
+
+    const handleOpenEditModal = (transaction: Transaction) => {
+        setEditingTransaction(transaction);
+        setTransactionModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setTransactionModalOpen(false);
+        setEditingTransaction(null);
+    };
+
     const { totalIncome, totalExpense, balance } = useMemo(() => {
         const income = filteredTransactions
             .filter(t => t.type === TransactionType.INCOME)
@@ -78,7 +100,7 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-900 font-sans text-slate-300">
-            <Header onExport={handleExport} onAddTransactionClick={() => setTransactionModalOpen(true)} />
+            <Header onExport={handleExport} onAddTransactionClick={handleOpenAddModal} />
             <main className="container mx-auto p-4 md:p-6">
                 <MonthNavigator
                     selectedMonth={selectedMonth}
@@ -112,15 +134,18 @@ const App: React.FC = () => {
                             transactions={transactions}
                             onAddCategory={handleAddCategory}
                             onDeleteTransaction={handleDeleteTransaction}
+                            onEditTransaction={handleOpenEditModal}
                         />
                     </div>
                 </div>
             </main>
             <TransactionModal 
                 isOpen={isTransactionModalOpen}
-                onClose={() => setTransactionModalOpen(false)}
+                onClose={handleCloseModal}
                 categories={categories}
                 onAddTransaction={handleAddTransaction}
+                onUpdateTransaction={handleUpdateTransaction}
+                transactionToEdit={editingTransaction}
             />
         </div>
     );
